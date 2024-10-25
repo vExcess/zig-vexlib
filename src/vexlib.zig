@@ -103,6 +103,7 @@ pub const As = struct {
     pub const @"u16" = genCastFn(u16, false);
     pub const @"u32" = genCastFn(u32, false);
     pub const @"u64" = genCastFn(u64, false);
+    pub const @"usize" = genCastFn(usize, false);
 
     pub const @"i8"  = genCastFn(i8, false);
     pub const @"i16" = genCastFn(i16, false);
@@ -158,6 +159,10 @@ pub const Math = struct {
 
     pub fn floor(x: anytype) @TypeOf(x) {
         return std.math.floor(x);
+    }
+
+    pub fn ceil(x: anytype) @TypeOf(x) {
+        return std.math.ceil(x);
     }
 
     pub inline fn cos(x: anytype) @TypeOf(x) {
@@ -216,10 +221,10 @@ pub const Math = struct {
         switch (@typeInfo(@TypeOf(val1, val2))) {
             .vector => |vecData| {
                 const castedAmt = @as(vecData.child, @floatCast(amt));
-                return ((val2 - val2) * @as(valType, @splat(castedAmt))) + val1;
+                return ((val2 - val1) * @as(valType, @splat(castedAmt))) + val1;
             },
             else => {
-                return ((val2 - val2) * @as(valType, @floatCast(amt))) + val1;
+                return ((val2 - val1) * @as(valType, @floatCast(amt))) + val1;
             }
         }
     }
@@ -663,8 +668,8 @@ pub fn Array(comptime T: type) type {
             return As.u32(self.buffer.len);
         }
 
-        pub fn get(self: *const Self, idx: u32) if (@typeInfo(T) == .@"struct") *T else T {
-            if (@typeInfo(T) == .@"struct") {
+        pub fn get(self: *const Self, idx: u32) if (@typeInfo(T) == .@"struct" or @typeInfo(T) == .@"union") *T else T {
+            if (@typeInfo(T) == .@"struct" or @typeInfo(T) == .@"union") {
                 return &self.buffer[idx];
             } else {
                 return self.buffer[idx];
@@ -877,11 +882,22 @@ pub fn Array(comptime T: type) type {
                     } else {
                         item = String.allocFrom(self.get(i).*);
                     }
+                } else if (TypeInfo == .array) {
+                    item = String.alloc(1);
+                    const temp = self.get(i);
+                    var j: usize = 0; while (j < temp.len) : (j += 1) {
+                        var temp2 = fmt(temp[j]);
+                        defer temp2.dealloc();
+                        item.concat(temp2);
+                        if (j < temp.len - 1) {
+                            item.concat(',');
+                        }
+                    }
                 } else if (TypeInfo == .int) {
                     item = Int.toString(self.get(i), 10);
                 } else if (TypeInfo == .float) {
                     item = Float.toString(self.get(i), 10);
-                } else if (TypeInfo == .Bool) {
+                } else if (TypeInfo == .bool) {
                     item = if (self.get(i)) String.allocFrom("true") else String.allocFrom("false");
                 }
                 defer item.dealloc();
@@ -1090,14 +1106,14 @@ pub const String = struct {
     }
 
     pub fn allocFrom(data_: anytype) String {
-        var data = data_;
-        if (@TypeOf(data) == String) {
+        if (@TypeOf(data_) == String) {
+            var data = data_;
             const temp = data.clone();
             return temp;
-        } else if (@typeInfo(@TypeOf(data)) == .@"struct") {
+        } else if (@typeInfo(@TypeOf(data_)) == .@"struct") {
             var temp = String.allocFrom(".{\n");
-            inline for (@typeInfo(@TypeOf(data)).Struct.fields) |field| {
-                const value = @field(data, field.name);
+            inline for (@typeInfo(@TypeOf(data_)).Struct.fields) |field| {
+                const value = @field(data_, field.name);
                 if (@typeInfo(@TypeOf(value)) == .@"struct") {
                     temp.concat("    .");
                     temp.concat(field.name);
@@ -1133,20 +1149,20 @@ pub const String = struct {
             temp.concat("}");
             return temp;
         } else {
-            switch (@TypeOf(data)) {
+            switch (@TypeOf(data_)) {
                 // char
                 comptime_int, i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize => {
-                    const temp = Int.toString(data, 10);
+                    const temp = Int.toString(data_, 10);
                     return temp;
                 },
                 // const string
                 else => {
-                    const dataLen = @as(u32, @intCast(data.len));
+                    const dataLen = @as(u32, @intCast(data_.len));
                     var temp = String.alloc(dataLen);
                     temp.viewEnd = dataLen;
                     temp.bytes.len = dataLen;
 
-                    for (data, 0..) |val, idx| {
+                    for (data_, 0..) |val, idx| {
                         temp.bytes.buffer[idx] = val;
                     }
 
