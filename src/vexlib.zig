@@ -1,4 +1,4 @@
-// vexlib - v0.0.25
+// vexlib - v0.0.26
 //
 // ABOUT
 //   vexlib is a "standard" library for writing Web Assembly compatible
@@ -1539,13 +1539,13 @@ pub const String = struct {
         if (self.isSlice) {
             @panic("cannot pad a slice");
         }
-        const padAmount = width - self.len();
+        const padAmount = As.i32(width) - As.i32(self.len());
         if (padAmount > 0) {
             var temp = String.alloc(width);
             defer temp.dealloc();
             temp.concat(str);
-            temp.repeat(padAmount / temp.len());
-            self.concat(temp.slice(0, padAmount));
+            temp.repeat(As.u32(padAmount) / temp.len());
+            self.concat(temp.slice(0, As.u32(padAmount)));
         }
     }
 
@@ -1843,11 +1843,11 @@ pub const Float = enum {
     pub fn toFixed(num: anytype, digits: u32) String {
         var out = Float.toString(num, 10);
         const dotIdx = As.u32(out.indexOf("."));
-        const digitCount = out.len() - dotIdx;
-        if (digitCount >= digits) {
+        const decimalDigitCount = out.len() - dotIdx - 1;
+        if (decimalDigitCount >= digits) {
             return out.slice(0, dotIdx + digits + 1);
         } else {
-            out.padEnd(digits, "0");
+            out.padEnd(dotIdx + digits + 1, "0");
             return out;
         }
     }
