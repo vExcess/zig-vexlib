@@ -1,7 +1,7 @@
 {
     name: "vexlib",
     language: "zig",
-    version: "0.0.23",
+    version: "0.0.26",
     description: "vexlib is a \"standard\" library for writing Web Assembly compatible programs in Zig",
     author: "VExcess <github.com/vexcess>",
     modules: {
