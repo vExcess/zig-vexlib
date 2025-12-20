@@ -1,4 +1,4 @@
-// vexlib - v0.0.29
+// vexlib - v0.0.30
 //
 // ABOUT
 //   vexlib is a "standard" library for writing Web Assembly compatible
@@ -1037,7 +1037,8 @@ pub fn ArrayList(comptime T: type) type {
             }
 
             return Self{
-                .buffer = self.buffer[start..end]
+                .buffer = self.buffer[start..end],
+                .len = end - start
             };
         }
     };
