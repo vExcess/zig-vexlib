@@ -39,7 +39,6 @@ pub const As = @import("./As.zig");
 
 pub const async = @import("./async.zig");
 pub const await = async.await;
-pub const Resolver = async.Resolver;
 pub const PromiseState = async.PromiseState;
 pub const Promise = async.Promise;
 
