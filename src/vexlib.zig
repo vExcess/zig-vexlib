@@ -1,4 +1,4 @@
-// vexlib - v0.1.0
+// vexlib - v0.1.1
 //
 // ABOUT
 //   vexlib is a "standard" library for writing Web Assembly compatible

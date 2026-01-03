@@ -9,19 +9,6 @@ pub fn await(promise: anytype) @TypeOf(promise.result) {
     return promise.result;
 }
 
-pub fn Resolver(comptime T: type) type {
-    return struct {
-        promise: *Promise(T),
-        
-        const Self = @This();
-
-        pub fn resolve(self: *const Self, value: T) void {
-            self.promise.state = PromiseState.fulfilled;
-            self.promise.result = value;
-        }
-    };
-}
-
 pub const PromiseState = enum {
     pending,
     fulfilled
@@ -34,29 +21,30 @@ pub fn Promise(comptime T: type) type {
 
         const Self = @This();
 
-        pub fn new(executor: fn(resolver: Resolver(T)) void) *Self {
+        pub fn new(executor: fn(promise: *Self) void) *Self {
             const allocator = vexlib.allocatorPtr.*;
 
             const promise = allocator.create(Promise(T)) catch @panic("OOM");
             promise.state = PromiseState.pending;
 
-            const resolver = Resolver(T){
-                .promise = promise
-            };
-
-            // executor(resolver);
-            const thread = std.Thread.spawn(.{}, executor, .{ resolver }) catch @panic("ThreadFail");
+            // executor(promise);
+            const thread = std.Thread.spawn(.{}, executor, .{ promise }) catch @panic("ThreadFail");
             thread.detach();
 
             return promise;
         }
 
-        pub fn resolve(_result: T) *Self {
+        pub fn resolve(self: *Self, value: T) void {
+            self.result = value;
+            self.state = PromiseState.fulfilled;
+        }
+
+        pub fn resolved(_result: T) *Self {
             const allocator = vexlib.allocatorPtr.*;
 
             const promise = allocator.create(Promise(T)) catch @panic("OOM");
-            promise.state = PromiseState.fulfilled;
             promise.result = _result;
+            promise.state = PromiseState.fulfilled;
 
             return promise;
         }
