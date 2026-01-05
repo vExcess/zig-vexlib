@@ -1,4 +1,4 @@
-// vexlib - v0.1.1
+// vexlib - v0.1.2
 //
 // ABOUT
 //   vexlib is a "standard" library for writing Web Assembly compatible
@@ -373,10 +373,105 @@ pub const Hash = struct {
     }
 };
 
-pub fn MapIterator(comptime MapEntry: type) type {
-    _=MapEntry;
+pub fn MapIterator(comptime MapType: type) type {
     return struct {
+        idx: u32 = 0,
+        map: *const MapType,
+        key: MapType.KeyType = undefined,
+        value: MapType.ValueType = undefined,
+
+        const Self = @This();
         
+        pub fn next(self: *Self) bool {
+            const hasCurrent = self.idx < self.map.buckets.len;
+            if (hasCurrent) {
+                const entry = self.map.buckets.get(self.idx);
+                self.key = entry.key;
+                self.value = entry.value;
+                self.idx += 1;
+            }
+            return hasCurrent;
+        }
+    };
+}
+
+pub fn ListMapEntry(comptime KeyType: type, comptime ValueType: type) type {
+    return struct {
+        key: KeyType,
+        value: ValueType,
+    };
+}
+
+pub fn ListMap(comptime KeyType_: type, comptime ValueType_: type) type {
+    return struct {
+        const KeyType = KeyType_;
+        const ValueType = ValueType_;
+        const Entry = ListMapEntry(KeyType, ValueType);
+
+        buckets: ArrayList(Entry),
+
+        const Self = @This();
+
+        pub fn alloc(capacity_: u32) Self {
+            return Self{
+                .buckets = ArrayList(Entry).alloc(capacity_)
+            };
+        }
+
+        pub fn dealloc(self: *Self) void {
+            self.buckets.dealloc();
+        }
+
+        pub fn grow(self: *Self, newCapacity: u32) void {
+            self.buckets.resize(newCapacity);
+        }
+
+        fn keyEql(a: KeyType, b: KeyType) bool {
+            return switch (KeyType) {
+                String => a.equals(b),
+                []const u8 => std.mem.eql(u8, a, b),
+                else => a == b
+            };
+        }
+
+        pub fn set(self: *Self, key: KeyType, value: ValueType) void {
+            // update existing key if exists
+            {var i: u32 = 0; while (i < self.buckets.len) : (i += 1) {
+                if (keyEql(self.buckets.get(i).key, key)) {
+                    self.buckets.buffer[As.usize(i)].value = value;
+                    return;
+                }
+            }}
+            // otherwise add key
+            self.buckets.append(Entry{
+                .key = key,
+                .value = value
+            });
+        }
+
+        pub fn get(self: *const Self, key: KeyType) ?ValueType {
+            {var i: u32 = 0; while (i < self.buckets.len) : (i += 1) {
+                if (keyEql(self.buckets.buffer[i].key, key)) {
+                    return self.buckets.buffer[i].value;
+                }
+            }}
+            return null;
+        }
+
+        pub fn has(self: *const Self, key: KeyType) bool {
+            {var i: u32 = 0; while (i < self.buckets.len) : (i += 1) {
+                if (keyEql(self.buckets.buffer[i].key, key)) {
+                    return true;
+                }
+            }}
+            return false;
+        }
+        
+        pub fn entries(self: *const Self) MapIterator(Self) {
+            return MapIterator(Self){
+                .map = self
+            };
+        }
     };
 }
 
@@ -471,7 +566,7 @@ pub fn Map(comptime KeyType: type, comptime ValueType: type) type {
                     isEmpty = bucket.key == null;
                     if (isEmpty or Self.keyEql(bucket.key.?, key)) {
                         // if bucket is empty or is same key, set value
-                        self.buckets[idx] = Entry{
+                        self.buckets[i] = Entry{
                             .key = key,
                             .value = value,
                             .hash = hash

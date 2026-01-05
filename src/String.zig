@@ -119,10 +119,20 @@ pub fn free(self: *String) void {
     allocator.destroy(self);
 }
 
-pub fn using(bytes: Uint8Array) String {
+pub fn usingArrayList(bytes: Uint8Array) String {
     return String{
         .viewStart = 0,
         .viewEnd = bytes.len,
+        .bytes = bytes,
+        .isSlice = false
+    };
+}
+
+pub fn usingSlice(_slice: []const u8) String {
+    const bytes = Uint8Array.using(@constCast(_slice));
+    return String{
+        .viewStart = 0,
+        .viewEnd = As.u32(_slice.len),
         .bytes = bytes,
         .isSlice = false
     };
@@ -134,10 +144,10 @@ pub fn usingCString(_cstring: [*c]const u8) String {
         strLen += 1;
     }
     const zstring = _cstring[0..strLen : 0];
-    return usingRawString(zstring);
+    return usingZigString(zstring);
 }
 
-pub fn usingRawString(_zstring: [:0]const u8) String {
+pub fn usingZigString(_zstring: [:0]const u8) String {
     var bytes = Uint8Array.using(@constCast(_zstring));
     bytes.len = As.u32(_zstring.len + 1);
     bytes.buffer.len += 1;
